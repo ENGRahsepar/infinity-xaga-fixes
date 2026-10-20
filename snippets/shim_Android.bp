@@ -1,0 +1,18 @@
+cc_library_shared {
+    name: "libvt_audiotrack_shim",
+    owner: "akali",
+    system_ext_specific: true,
+
+    srcs: ["lib/vt_audiotrack_shim.c"],
+
+    /* Pure C pass-through: no STL needed. The A17 ctor symbol resolves
+     * against libaudioclient at runtime. */
+    shared_libs: [
+        "libaudioclient",
+    ],
+    stl: "none",
+
+    cflags: ["-Wno-unused-parameter"],
+
+    visibility: ["//visibility:public"],
+}

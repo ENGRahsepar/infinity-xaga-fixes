@@ -1,0 +1,25 @@
+diff --git a/services/core/java/com/android/server/am/ProcessList.java b/services/core/java/com/android/server/am/ProcessList.java
+index d29a159e5..f3ee340c4 100644
+--- a/services/core/java/com/android/server/am/ProcessList.java
++++ b/services/core/java/com/android/server/am/ProcessList.java
+@@ -2432,13 +2432,13 @@ public final class ProcessList extends ProcessListInternal
+                     // site.
+                     getUidTransitionPolicy().disallowAllUidTransitionsFrom(uid);
+                 } else {
+-                    final IsolatedUidRange uidRange =
+-                        mAppIsolatedUidRangeAllocator.getIsolatedUidRangeLocked(
+-                                app.info.processName, app.getHostingRecord().getDefiningUid());
+-                    // Create the app-zygote and provide it with the UID-range it's allowed
+-                    // to setresuid/setresgid to.
+-                    firstUid = UserHandle.getUid(userId, uidRange.mFirstUid);
+-                    lastUid = UserHandle.getUid(userId, uidRange.mLastUid);
++                    // MTK_IMS_FIXES FIX 11: grant the app-zygote the full app-zygote
++                    // isolated UID space instead of a per-app slice. A per-app slice can
++                    // race with the child-process UID allocation, making the app-zygote
++                    // seccomp filter deny setresgid (SIGSYS, syscall 149) and crashing
++                    // Chromium sandboxed children (browser_zygote crashes).
++                    firstUid = Process.FIRST_APP_ZYGOTE_ISOLATED_UID;
++                    lastUid = Process.LAST_APP_ZYGOTE_ISOLATED_UID;
+                 }
+ 
+                 ApplicationInfo appInfo = new ApplicationInfo(app.info);

@@ -1,0 +1,20 @@
+# ==============================================================================
+# Bundled-version Chromium browsers (GoLogin/Orbita, Kiwi & forks, in-app
+# browser SDKs) spawn an app-owned child zygote (e.g. "<app>_zygote").
+# This tree's child-zygote path re-opens /system/bin/app_process64 (zygote_exec)
+# from disk before the memfd self-exec; that exec is already permitted in
+# system/sepolicy/private/app_zygote.te (app_zygote_tmpfs/memfd_file: execute),
+# but READing the source binary was denied, so the sandboxed renderer never
+# attached: AMS logs "Process ... sandboxed_process0 ... failed to attach"
+# then "start timeout". Plain-browser apps (Chrome) use the isolated spawn
+# path and do not hit this.
+#
+# Crash reporting for the same processes was also silently denied
+# (tombstoned_crash_socket write) - restored below.
+#
+# Neverallow-safe: NO execute/execute_no_trans granted (see neverallow
+# app_zygote *:file execute_no_trans in app_zygote.te), only read/getattr.
+# ==============================================================================
+allow app_zygote zygote_exec:file { getattr open read };
+
+allow app_zygote tombstoned_crash_socket:sock_file write;

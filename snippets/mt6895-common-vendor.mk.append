@@ -1,0 +1,22 @@
+# ------------------------------------------------------------------
+# MTK IMS / VoLTE / EngineerMode fixes — appended wiring (auto-managed).
+# Managed by ../MTK_IMS_FIXES/apply_fixes.sh - do not hand-edit blindly;
+# the script is idempotent and skips what is already applied.
+# ------------------------------------------------------------------
+PRODUCT_PACKAGES += \
+    vtservice \
+    libvt_audiotrack_shim \
+    vtservice_aidl \
+    vendor.mediatek.hardware.videotelephony-impl \
+    vendor.mediatek.hardware.videotelephony-V1-ndk \
+    vendor.mediatek.hardware.videotelephony-V1-ndk_vendor \
+    vendor.mediatek.hardware.videotelephony@1.0
+
+PRODUCT_COPY_FILES += \
+    vendor/xiaomi/mt6895-common/proprietary/system_ext/etc/init/init.vtservice.rc:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/init/init.vtservice.rc \
+    vendor/xiaomi/mt6895-common/proprietary/vendor/etc/init/init.vtservice_aidl.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.vtservice_aidl.rc
+
+# EngineerMode HAL VINTF manifest fragment (see emhal/Android.bp +
+# emhal/manifest_em_hidl.xml). Required for the "IMS test" toggle.
+PRODUCT_PACKAGES += \
+    manifest_em_hidl.xml

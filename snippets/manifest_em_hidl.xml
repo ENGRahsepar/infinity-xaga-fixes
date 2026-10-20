@@ -1,0 +1,23 @@
+<manifest version="1.0" type="device">
+    <!-- EngineerMode HAL (vendor.mediatek.hardware.engineermode) - required by
+         com.mediatek.engineermode "IMS test" toggle. em_hidl registers instance
+         "EmHidlServer" (see vendor/etc/init/em_hidl_user.rc). This fragment was
+         present in the stock manifest but lost during blob extraction. -->
+    <hal format="hidl">
+        <name>vendor.mediatek.hardware.engineermode</name>
+        <transport>hwbinder</transport>
+        <version>1.0-1.3</version>
+        <interface>
+            <fqname>@1.0::IEmd/EmHidlServer</fqname>
+        </interface>
+        <interface>
+            <fqname>@1.1::IEmd/EmHidlServer</fqname>
+        </interface>
+        <interface>
+            <fqname>@1.2::IEmd/EmHidlServer</fqname>
+        </interface>
+        <interface>
+            <fqname>@1.3::IEmd/EmHidlServer</fqname>
+        </interface>
+    </hal>
+</manifest>

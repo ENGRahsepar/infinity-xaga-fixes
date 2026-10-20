@@ -1,0 +1,11 @@
+/* VINTF manifest fragment for the EngineerMode HAL (vendor.mediatek.hardware.engineermode).
+ * Stock manifest entry was lost during blob extraction; without it hwservicemanager
+ * rejects the em_hidl registration and the EngineerMode "IMS test" toggle crashes. */
+prebuilt_etc_xml {
+    name: "manifest_em_hidl.xml",
+    owner: "akali",
+    src: "manifest_em_hidl.xml",
+    filename_from_src: true,
+    sub_dir: "vintf/manifest",
+    soc_specific: true,
+}

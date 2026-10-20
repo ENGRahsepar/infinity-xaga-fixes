@@ -1,0 +1,5 @@
+# EngineerMode HAL auto-start: em_hidl_user is declared `oneshot disabled` and
+# nothing else in stock rc files triggers it; without this the EngineerMode
+# app's getService() finds nothing running and the IMS-test toggle crashes.
+on property:sys.boot_completed=1
+    start emhidl_user
