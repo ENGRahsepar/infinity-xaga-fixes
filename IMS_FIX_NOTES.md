@@ -535,3 +535,48 @@ reach the kernel policy) - those need the compiled tree policy (FIX 17).
 A boot-time helper was installed on the device meanwhile:
 /data/adb/service.d/99-miuicamera-selinux.sh (re-applies the runtime patches
 after every reboot until the ROM is rebuilt).
+
+## 17. FIX 19 — the real A17 root cause: the camera app moved to `platform_app_36`
+
+The first build with FIX 12-18 FAILED the neverallow check (8 violations):
+
+  * `neverallow { domain -$1_client -$1_server } $2:hwservice_manager find;`
+    (from hal_attribute_hwservice) blocked
+    `allow platform_app_36 mtk_hal_bgs_hwservice:hwservice_manager find`
+  * the same macro for hal_attribute_service blocked
+    `allow platform_app_36 hal_camera_service:service_manager find`
+  * `neverallow domain { property_type -system_property_type
+    -product_property_type -vendor_property_type }:file no_rw_file_perms`
+    + the not_compatible/compatible_property_only macros blocked ALL
+    `default_prop:file` / `vendor_default_prop:file` access (the property
+    AREA files) - those denials are normal A17 behaviour and were removed
+
+=> the neverallow only exempts the "<hal>_client" ATTRIBUTE, so the app has
+to JOIN the client attribute instead of getting a direct allow.
+
+  device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te (new)
+      hal_client_domain(platform_app_36, hal_mtk_bgs)   # ISP/BGS HAL
+      hal_client_domain(platform_app_36, hal_mtk_pq)
+      hal_client_domain(platform_app_36, hal_allocator)
+      binder_call(platform_app_36, mtk_hal_camera) (+ reverse)
+      mdla_device / vpu_device / sw_sync_device (AI + VPU + lomo)
+      mtk_hal_neuralnetworks (NPU binder)
+      proc_mtk_jpeg, proc_secmem, debugfs_ion, camera props
+  device/mediatek/sepolicy_vndr/base/private/miuicamera_platform_app_36.te (new)
+      typeattribute platform_app_36 hal_camera_client;   # platform private
+      allow platform_app_36 hal_camera_service:service_manager find;
+
+`halclientdomain` carries `expandattribute halclientdomain true`, so vendor
+policy may extend it. `hal_camera_client` is platform private, hence the
+private (system_ext) sepolicy dir - same trick as system/sepolicy/private/su.te.
+
+### Verification without a full build
+The build's own rule script (out/soong/rule_builder_scripts/3dd721...sh) was
+re-run with the two new files added to the m4 input list, then the policy was
+checked with the host checkpolicy (same command as the build):
+  out/host/linux-x86/bin/checkpolicy -M -c 30 -o /tmp/opencode/policy.bin \
+      /tmp/opencode/policy_check.conf      -> exit 0 (no neverallow failure)
+On the phone the very same rules were applied at runtime with
+`ksud sepolicy patch` (note: the patcher IGNORES plain `find` rules on
+service types, but DOES support `typeattribute`) - with them the camera runs
+under full Enforcing: night mode OK, IMAGE_CAPTURE capture OK, no tombstone.

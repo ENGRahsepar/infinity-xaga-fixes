@@ -23,6 +23,22 @@ skip() { echo "  SKIP  $* (already fixed)"; }
 fail() { echo "  FAIL  $*"; FAILED=$((FAILED+1)); }
 FAILED=0
 
+# --- FIX 19: platform_app_36 client domains (BGS/ISP HAL, MDLA/NPU, native camera services) ---
+DEST19A="$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te"
+if [ ! -f "$DEST19A" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/platform_app_36.te" "$DEST19A"
+  ok "platform_app_36.te installed (FIX 19)"
+else
+  skip "platform_app_36.te present (FIX 19)"
+fi
+DEST19B="$TOP/device/mediatek/sepolicy_vndr/base/private/miuicamera_platform_app_36.te"
+if [ ! -f "$DEST19B" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/miuicamera_platform_app_36.te" "$DEST19B"
+  ok "miuicamera_platform_app_36.te installed (FIX 19)"
+else
+  skip "miuicamera_platform_app_36.te present (FIX 19)"
+fi
+
 echo "=========================================================="
 echo " MTK IMS/VoLTE fix re-application — I N F I N I T Y  xaga"
 echo " Tree: $TOP"

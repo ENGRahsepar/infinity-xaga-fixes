@@ -20,16 +20,16 @@
 #  * proc_stat / app_data_file execute / vendor_camera_data_file - used
 #    by the parallel post-processor (ParallelDataZip thread)
 #
-#  * the MTK ISP/BGS hwservice and the native "isphal" service - needed
-#    when the camera is opened FROM ANOTHER APP (IMAGE_CAPTURE intent):
-#    the capture pipeline needs vendor.mediatek.hardware.camera.isphal
-#    ::IISPModule, otherwise the capture silently does nothing.
-#
-#  * the property areas the app maps (vendor_default_prop / default_prop)
-#
 # The rules live here (and not in vendor/xiaomi/miuicamera-xaga) because
 # that package only knows about the old `platform_app` domain and is
 # synced from upstream, while this device tree is ours.
+#
+# NOTE: the property AREA files (/dev/__properties__/<ctx>) must NOT be
+# granted here - system/sepolicy/private/property.te and
+# system/sepolicy/public/property.te neverallow every domain from
+# accessing default_prop/vendor_default_prop as a file (only init may).
+# Those AVC denials are normal A17 behaviour and the property values
+# still arrive through the property service.
 # ---------------------------------------------------------------
 
 # MTK APU/NPU node used by the super-night (Arcsoft) post-processor
@@ -41,15 +41,6 @@ allow platform_app_36 app_data_file:file execute;
 allow platform_app_36 vendor_camera_data_file:dir { append map r_dir_perms write };
 allow platform_app_36 vendor_camera_data_file:file { getattr open read };
 
-# MTK ISP/BGS HAL + native isphal service (needed for the
-# "opened from another app" capture flow)
-allow platform_app_36 mtk_hal_bgs_hwservice:hwservice_manager find;
-allow platform_app_36 hal_camera_service:service_manager find;
-
-# property areas the app maps for the vendor/default properties
-allow platform_app_36 vendor_default_prop:file { getattr open read map };
-allow platform_app_36 default_prop:file { getattr open read map };
-
 # camera properties
 get_prop(platform_app_36, vendor_mtk_camera_prop);
 
@@ -59,4 +50,3 @@ get_prop(platform_app_36, vendor_mtk_camera_prop);
 # so the property gets its own type.
 type vendor_camera_dla_prop, property_type, vendor_property_type;
 allow mtk_hal_camera vendor_camera_dla_prop:property_service set;
-allow mtk_hal_camera vendor_camera_dla_prop:file { getattr open read map };

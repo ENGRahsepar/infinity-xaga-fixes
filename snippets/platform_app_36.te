@@ -1,0 +1,64 @@
+# ==============================================
+# FIX 19 (mtk-ims-fixes kit) - platform_app_36 (A17) mirror of
+#                                      platform_app.te
+# ==============================================
+# On A17 the platform signed MiuiCamera (com.android.camera) runs in the
+# NEW domain `platform_app_36` (platform key + targetSdk <= 36) and NOT
+# in `platform_app`. Every rule the MTK vendor policy hands to
+# `platform_app` therefore stopped applying to the camera app:
+#
+#   * the BGService/ISP HIDL (denied "find
+#     vendor.mediatek.hardware.camera.isphal::IISPModule")
+#   * the neural-network + MDLA (AI accelerator) devices and the VPU
+#     device - these are what the Arcsoft super-night (raw) engine
+#     uses; without them the engine init fails and its teardown
+#     dereferences a NULL handle:
+#        libArcNetMtk.so mcSuperNetMTK_NPURelease -> SIGSEGV @0x18
+#   * the PQ HAL, the allocator, the JPEG bridge, the lomo/sync device
+#
+# The rules below mirror the platform_app ones of
+# device/mediatek/sepolicy_vndr/base/vendor/platform_app.te for the
+# camera app. hal_client_domain() is used on purpose: the neverallows
+# of hal_attribute_hwservice()/hal_attribute_service() only exempt the
+# "<hal>_client" attributes, so a plain
+#   allow platform_app_36 <vendor_hwservice>:hwservice_manager find;
+# would fail the neverallow check.
+#
+# halclientdomain has "expandattribute ... true" in
+# system/sepolicy/public/attributes, so extending it from vendor policy
+# is allowed.
+
+# MTK BGService / ISP HAL (HIDL) - IISPModule lookup
+hal_client_domain(platform_app_36, hal_mtk_bgs)
+
+# camera HAL binder, both directions
+binder_call(platform_app_36, mtk_hal_camera)
+binder_call(mtk_hal_camera, platform_app_36)
+
+# MTK PQ HAL and the shared allocator
+hal_client_domain(platform_app_36, hal_mtk_pq)
+hal_client_domain(platform_app_36, hal_allocator)
+
+# neural network / MDLA (AI) / VPU devices - Arcsoft super-night engine
+allow platform_app_36 mtk_hal_neuralnetworks:binder { call transfer };
+allow platform_app_36 mdla_device:chr_file { rw_file_perms };
+allow platform_app_36 vpu_device:chr_file { rw_file_perms };
+
+# lomo effect / sync device
+allow platform_app_36 sw_sync_device:chr_file rw_file_perms;
+
+# MTK jpeg bridge
+allow platform_app_36 proc_mtk_jpeg:file rw_file_perms;
+allowxperm platform_app_36 proc_mtk_jpeg:file ioctl {
+      JPG_BRIDGE_DEC_IO_LOCK
+      JPG_BRIDGE_DEC_IO_WAIT
+      JPG_BRIDGE_DEC_IO_UNLOCK
+};
+
+# properties used by the camera
+get_prop(platform_app_36, vendor_mtk_cam_security_prop);
+get_prop(platform_app_36, vendor_mtk_cta_support_prop);
+
+# misc (same as the platform_app rules)
+allow platform_app_36 proc_secmem:file r_file_perms;
+allow platform_app_36 debugfs_ion:dir search;

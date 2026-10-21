@@ -80,10 +80,17 @@ MC16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te"
 chk "FIX 16: miuicamera.te present"        '[ -f "'"$MC16"'" ]'
 chk "FIX 16: apusys for platform_app_36"    'grep -q "allow platform_app_36 apusys_device:chr_file rw_file_perms" "'"$MC16"'"'
 chk "FIX 17: proc_stat for platform_app_36" 'grep -q "allow platform_app_36 proc_stat:file r_file_perms" "'"$MC16"'"'
-chk "FIX 17: bgs hwservice find"            'grep -q "allow platform_app_36 mtk_hal_bgs_hwservice:hwservice_manager find" "'"$MC16"'"'
-chk "FIX 17: isphal service find"           'grep -q "allow platform_app_36 hal_camera_service:service_manager find" "'"$MC16"'"'
+chk "FIX 17: bgs client attribute (FIX 19)" 'grep -q "hal_client_domain(platform_app_36, hal_mtk_bgs)" "$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te"'
+chk "FIX 17: isphal service find (FIX 19)"  'grep -q "allow platform_app_36 hal_camera_service:service_manager find" "$TOP/device/mediatek/sepolicy_vndr/base/private/miuicamera_platform_app_36.te"'
 chk "FIX 18: camera DLA prop type"          'grep -q "type vendor_camera_dla_prop, property_type" "'"$MC16"'"'
 chk "FIX 18: DLA prop context"              'grep -q "vendor.nrcore.dla.model.error" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/property_contexts"'
+# FIX 19: platform_app_36 client domains
+chk "FIX 19: platform_app_36.te present"   '[ -f "$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te" ]'
+chk "FIX 19: bgs client attribute"          'grep -q "hal_client_domain(platform_app_36, hal_mtk_bgs)" "$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te"'
+chk "FIX 19: mdla (AI) device"              'grep -q "allow platform_app_36 mdla_device:chr_file" "$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te"'
+chk "FIX 19: camera HAL binder"             'grep -q "binder_call(platform_app_36, mtk_hal_camera)" "$TOP/device/mediatek/sepolicy_vndr/base/vendor/platform_app_36.te"'
+chk "FIX 19: hal_camera_client membership"  'grep -q "typeattribute platform_app_36 hal_camera_client" "$TOP/device/mediatek/sepolicy_vndr/base/private/miuicamera_platform_app_36.te"'
+chk "FIX 19: native camera service find"    'grep -q "allow platform_app_36 hal_camera_service:service_manager find" "$TOP/device/mediatek/sepolicy_vndr/base/private/miuicamera_platform_app_36.te"'
 
 # live device checks (optional, only if this host has adb and the phone is online)
 if command -v adb >/dev/null 2>&1 && adb -s 100.67.8.82:5555 get-state 2>/dev/null | grep -q device; then
