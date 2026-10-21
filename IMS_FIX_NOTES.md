@@ -580,3 +580,23 @@ On the phone the very same rules were applied at runtime with
 `ksud sepolicy patch` (note: the patcher IGNORES plain `find` rules on
 service types, but DOES support `typeattribute`) - with them the camera runs
 under full Enforcing: night mode OK, IMAGE_CAPTURE capture OK, no tombstone.
+
+## 18. The kit was re-breaking the build (FIX 15) + local policy check tool
+
+The 2nd build failed with the SAME 4 neverallow violations even though the
+tree file had been fixed: `MTK_IMS_FIXES/apply_fixes.sh` still *appended*
+
+    allow mtk_hal_camera default_prop:file { open read getattr map };
+    allow hal_audio_default default_prop:file { open read getattr map };
+
+to device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te on every
+run - and those rules are exactly what the neverallows forbid. FIX 15 is now
+documentation-only (the property AREA file is init-only by A17 design; the
+AVC denials for it are normal and the values still come through the property
+service).
+
+New tool: `MTK_IMS_FIXES/check_policy.sh`
+  -> re-runs the build's own m4 rule script with the kit's new .te files
+     added to the input list and then runs the build's checkpolicy command
+     (checkpolicy -M -c 30). Takes ~1 min, no ninja/soong, no RAM freeze.
+  -> exit 0 = the sepolicy step of the build will pass.
