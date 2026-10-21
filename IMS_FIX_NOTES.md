@@ -393,3 +393,42 @@ force-stop + relaunch for Brave/Chrome/GoLogin via adb -> app zygotes and
 their `sandboxed_process0` children alive (u0_i23/24/26), crash buffer
 seccomp count = 0. Old flashed build under the identical stress: 12 kills.
 Kit steps: apply_fixes.sh [11/11] + verify_fixes.sh FIX 11 checks.
+
+## 14. FIX 12+13 — SELinux regressions from the A17 source update (2026-10-21)
+
+**Symptom A:** MiuiCamera (com.android.camera) SIGSEGV in thread `CameraSetup`,
+addr 0x18, ONLY when switching AWAY from Night mode to any other mode. Every
+other mode combination fine. Also: user reports other (unnamed) app bug fixed.
+**Symptom B:** since the same flash, /data/tombstones stopped receiving new
+entries at all; every app native crash printed only
+  crash_dump failed to dump process <pid>: Failed to initialize unwinder
+  object: Failed to parse maps
+(system_domain dumps still worked, camera crashes were invisible).
+
+Diagnosis = SELinux, proven by setenforce 0 making BOTH problems vanish:
+- A17 policy refresh dropped the platform-app → MTK camera HAL grants.
+  MiuiCamera binds `mtk_hal_camera` DIRECTLY (HIDL ops for mode switch /
+  multiframe plumbing); a denied `binder { call transfer }` returns NULL on
+  the CameraSetup path -> unguarded deref -> SIGSEGV @0x18. Permissive AVC
+  capture (16:18):
+    { call } platform_app_36 -> mtk_hal_camera (RequestDispatch)
+    { transfer } platform_app_36 <-> mtk_hal_camera
+    { getattr } platform_app_36 -> unlabeled filesystem (dmabuf mount "/")
+- App processes (any app_uid, tested systemui/launcher/camera) map an MTK
+  device-only memfd named `/memfd:mf:/proc/<pid>/smaps (deleted)` labeled
+  tmpfs. crash_dump's libunwindstack opens every mapped file to read ELF
+  build-ids; { read getattr } denied -> parse_maps aborts -> no tombstone,
+  no backtrace. system_server lacks that mapping, hence "system dumps OK".
+  Second needed grant: crash_dump reads cgroup2 cgroup.procs of sibling
+  threads (`/sys/fs/cgroup/apps/uid_*/pid_*/cgroup.procs`, type cgroup_v2).
+
+**Tree fixes (both in MTK_IMS_FIXES kit):**
+- FIX 12: device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera_hal_binder.te
+  platform_app(_36) <-> mtk_hal_camera binder call/transfer, unlabeled:fs getattr.
+- FIX 13: device/mediatek/sepolicy_vndr/base/private/crash_dump_mtk_memfd.te
+  crash_dump tmpfs:file read/getattr/open + cgroup_v2:file read/getattr/open.
+Both registered in apply_fixes.sh (idempotent) + verify_fixes.sh.
+Live hot-patch via `ksud sepolicy patch` FAILED (Tool's Rust parser chokes on
+the statement syntax) — do NOT rely on that path; tree build is the fix.
+Reverted experimental state: device remains permissive until this build is
+flashed (rebuild ships a correct policy; flashing restores Enforcing DNA).

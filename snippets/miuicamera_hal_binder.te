@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------
+# FIX 12 (mtk-ims-fixes kit) - MIUI Camera <-> MTK camera HAL
+#
+# MiuiCamera (com.android.camera, platform-signed, targetSdk 36 ->
+# domain platform_app with the platform_app_36 sub-domain) opens the
+# MTK camera provider HAL directly (mtk_hal_camera) for the mode-
+# switch/multiframe plumbing instead of going through cameraservice.
+# The A17 policy update dropped the binder { call transfer } grants,
+# so every departure FROM night mode returned a failed binder call
+# and CameraSetup dereferenced the null result -> SIGSEGV, addr 0x18.
+#
+# Audit trail 2026-10-21 (permissive capture on xaga):
+#   denied { call }       platform_app_36 -> mtk_hal_camera (RequestDispatch)
+#   denied { transfer }   platform_app_36 <-> mtk_hal_camera
+#   denied { getattr }    platform_app_36 -> unlabeled (dmabuf fs "/")
+# ---------------------------------------------------------------
+
+# app (platform-signed, both platform_app variants) -> MTK camera HAL
+allow platform_app_36 mtk_hal_camera:binder { call transfer };
+allow mtk_hal_camera platform_app_36:binder { call transfer };
+allow platform_app mtk_hal_camera:binder { call transfer };
+allow mtk_hal_camera platform_app:binder { call transfer };
+
+# MTK GPU/dmabuf sysfs root is unlabeled in the vendor genfs map;
+# the render thread stats it when reconfiguring buffers.
+allow platform_app unlabeled:filesystem getattr;
+allow platform_app_36 unlabeled:filesystem getattr;

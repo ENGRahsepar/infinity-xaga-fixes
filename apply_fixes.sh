@@ -388,6 +388,24 @@ else
   skip "ProcessList.java already carries FIX 11"
 fi
 
+# --- FIX 12: MIUI Camera <-> MTK camera HAL binder grants (nw switch crash) ---
+DEST12="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera_hal_binder.te"
+if [ ! -f "$DEST12" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/miuicamera_hal_binder.te" "$DEST12"
+  ok "MIUI camera HAL binder te installed (FIX 12)"
+else
+  skip "miuicamera_hal_binder.te present (FIX 12)"
+fi
+
+# --- FIX 13: crash_dump unwinder for MTK memfd app maps (no more 'Failed to parse maps') ---
+DEST13="$TOP/device/mediatek/sepolicy_vndr/base/private/crash_dump_mtk_memfd.te"
+if [ ! -f "$DEST13" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/crash_dump_mtk_memfd.te" "$DEST13"
+  ok "crash_dump memfd te installed (FIX 13)"
+else
+  skip "crash_dump_mtk_memfd.te present (FIX 13)"
+fi
+
 echo "=========================================================="
 if [ "$DRYRUN" = "1" ]; then
   echo "Dry run complete — nothing was modified."

@@ -1,0 +1,20 @@
+# ---------------------------------------------------------------
+# FIX 13 (mtk-ims-fixes kit) - crash_dump unwinder for MTK memfd maps
+#
+# Since the A17 sepolicy refresh, EVERY app-uid native crash produced
+#   crash_dump failed to dump process <pid>:
+#     Failed to initialize unwinder object: Failed to parse maps
+# and /data/tombstones stayed empty (while system_server dumped fine).
+#
+# Root cause (audit 2026-10-21, xaga): MTK's app processes map a
+# device-only named memfd  "/memfd:mf:/proc/<pid>/smaps (deleted)"
+# (MTK mf: memory-service mirror). The kernel labels these inodes
+# u:object_r:tmpfs:s0. libunwindstack opens every mapped file to read
+# ELF build-ids; the { read getattr } denial makes parse_maps abort.
+# system_server has no such mapping -> it was the only dumper that
+# worked. Also granted: crash_dump enum of task siblings under
+# cgroup2 (reads cgroup.procs to expand threads).
+# ---------------------------------------------------------------
+
+allow crash_dump tmpfs:file { read getattr open };
+allow crash_dump cgroup_v2:file { read getattr open };

@@ -63,6 +63,11 @@ chk "FIX 11: banner comment present"              'grep -q "MTK_IMS_FIXES FIX 11
 chk "FIX 11: full-range constants in else-branch" 'grep -q "firstUid = Process.FIRST_APP_ZYGOTE_ISOLATED_UID" "$PL" && grep -q "lastUid = Process.LAST_APP_ZYGOTE_ISOLATED_UID" "$PL"'
 chk "FIX 11: old per-app slice block removed"     '! grep -q "provide it with the UID-range" "$PL"'
 
+# FIX 12: MIUI Camera <-> MTK camera HAL binder grants
+chk "FIX 12: camera HAL binder te present" 'grep -q "mtk_hal_camera:binder { call transfer }" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera_hal_binder.te"'
+# FIX 13: crash_dump unwinder for MTK memfd maps
+chk "FIX 13: crash_dump memfd te present"  'grep -q "allow crash_dump tmpfs:file" "$TOP/device/mediatek/sepolicy_vndr/base/private/crash_dump_mtk_memfd.te"'
+
 # live device checks (optional, only if this host has adb and the phone is online)
 if command -v adb >/dev/null 2>&1 && adb -s 100.67.8.82:5555 get-state 2>/dev/null | grep -q device; then
   echo "-------------------------------- device (live) ----------------"
