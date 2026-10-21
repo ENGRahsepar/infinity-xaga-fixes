@@ -74,7 +74,7 @@ chk "FIX 14: platform_app find grant"      'grep -q "allow platform_app hal_came
 chk "FIX 14: platform_app_36 find grant"   'grep -q "allow platform_app_36 hal_camerapostproc_xiaomi_hwservice:hwservice_manager find" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te"'
 chk "FIX 14: hwservice_contexts entry"     'grep -q "campostproc::IMiPostProcService" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hwservice_contexts"'
 # FIX 15: camera HAL property area read
-chk "FIX 15: mtk_hal_camera prop read"     'grep -q "allow mtk_hal_camera default_prop:file { open read getattr map }" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"'
+chk "FIX 15: no forbidden prop-area rule" '! grep -q "default_prop:file" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"'
 # FIX 16/17/18: MiuiCamera platform_app_36 rules
 MC16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te"
 chk "FIX 16: miuicamera.te present"        '[ -f "'"$MC16"'" ]'

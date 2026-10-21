@@ -448,21 +448,18 @@ else
   skip "hwservice_contexts already maps campostproc (FIX 14)"
 fi
 
-# --- FIX 15: camera HAL property-area read (denied open on /dev/__properties__) ---
-MC15="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"
-if ! grep -q "default_prop:file { open read getattr map }" "$MC15" 2>/dev/null; then
-  [ "$DRYRUN" = "1" ] || cat >> "$MC15" << 'EOM'
-
-# MTK camera HAL reads vendor properties through the legacy property API
-# (opens /dev/__properties__/u:object_r:default_prop:s0) - without this the
-# open is denied and the HAL silently runs with default configuration.
-allow mtk_hal_camera default_prop:file { open read getattr map };
-allow hal_audio_default default_prop:file { open read getattr map };
-EOM
-  ok "mtk_hal_camera property-area read granted (FIX 15)"
-else
-  skip "mtk_hal_camera te already grants the property area (FIX 15)"
-fi
+# --- FIX 15: camera HAL property-area read ---
+# NOT a rule - on purpose! The property AREA file (/dev/__properties__/<ctx>)
+# may NOT be granted to anybody but init:
+#   system/sepolicy/private/property.te:
+#     neverallow domain { property_type -system_property_type
+#       -product_property_type -vendor_property_type }:file no_rw_file_perms;
+#   system/sepolicy/public/property.te:
+#     not_compatible_property(vendor_public_prop(vendor_default_prop))
+# Granting default_prop:file { read open } to the camera HAL therefore
+# breaks the build with 4 neverallow violations. The AVC denials for the
+# property area are normal A17 behaviour - the property VALUES still
+# arrive through the property service.
 
 # --- FIX 16/17/18: MiuiCamera on A17 (platform_app_36 domain) ---
 DEST16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te"

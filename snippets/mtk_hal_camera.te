@@ -1,0 +1,19 @@
+type camera_persist_file, file_type;
+type vendor_camera_data_file, data_file_type, file_type;
+
+r_dir_file(mtk_hal_camera, camera_persist_file)
+
+rw_dir_file(mtk_hal_camera, vendor_camera_data_file)
+rw_dir_file(mtk_hal_camera, sysfs_therm)
+
+allow mtk_hal_camera camera_persist_file:file r_file_perms;
+allow mtk_hal_camera vendor_camera_data_file:file create_file_perms;
+allow mtk_hal_camera vendor_camera_data_file:file rw_file_perms;
+
+# NOTE: the property area file (/dev/__properties__/<ctx>) may NOT be
+# granted to the HAL - system/sepolicy/private/property.te neverallows
+# every domain from accessing default_prop as a file (only init may).
+# The MTK HAL therefore always shows
+#   avc: denied { open } ... tcontext=default_prop
+# in the audit log; that is normal A17 behaviour and the properties
+# themselves are delivered through the property service.
