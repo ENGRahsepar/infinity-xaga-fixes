@@ -403,7 +403,49 @@ if [ ! -f "$DEST13" ]; then
   [ "$DRYRUN" = "1" ] || cp "$SNIP/crash_dump_mtk_memfd.te" "$DEST13"
   ok "crash_dump memfd te installed (FIX 13)"
 else
-  skip "crash_dump_mtk_memfd.te present (FIX 13)"
+  # keep the tmpfs `write` grant in sync (needed by /proc/<pid>/map_files)
+  if ! grep -q "allow crash_dump tmpfs:file { write }" "$DEST13"; then
+    [ "$DRYRUN" = "1" ] || cp "$SNIP/crash_dump_mtk_memfd.te" "$DEST13"
+    ok "crash_dump memfd te refreshed with tmpfs write grant (FIX 13)"
+  else
+    skip "crash_dump_mtk_memfd.te up to date (FIX 13)"
+  fi
+fi
+
+# --- FIX 14: Xiaomi camera post-processing HIDL service (campostproc) ---
+DEST14="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te"
+if [ ! -f "$DEST14" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/hal_camerapostproc.te" "$DEST14"
+  ok "campostproc hwservice te installed (FIX 14)"
+else
+  skip "hal_camerapostproc.te present (FIX 14)"
+fi
+HSC14="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hwservice_contexts"
+if ! grep -q "campostproc" "$HSC14" 2>/dev/null; then
+  [ "$DRYRUN" = "1" ] || cat >> "$HSC14" << 'EOC'
+
+# Camera post processing (MiuiCamera super-night) - FIX 14
+vendor.xiaomi.hardware.campostproc::IMiPostProcService                   u:object_r:hal_camerapostproc_xiaomi_hwservice:s0
+EOC
+  ok "hwservice_contexts: campostproc mapped (FIX 14)"
+else
+  skip "hwservice_contexts already maps campostproc (FIX 14)"
+fi
+
+# --- FIX 15: camera HAL property-area read (denied open on /dev/__properties__) ---
+MC15="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"
+if ! grep -q "default_prop:file { open read getattr map }" "$MC15" 2>/dev/null; then
+  [ "$DRYRUN" = "1" ] || cat >> "$MC15" << 'EOM'
+
+# MTK camera HAL reads vendor properties through the legacy property API
+# (opens /dev/__properties__/u:object_r:default_prop:s0) - without this the
+# open is denied and the HAL silently runs with default configuration.
+allow mtk_hal_camera default_prop:file { open read getattr map };
+allow hal_audio_default default_prop:file { open read getattr map };
+EOM
+  ok "mtk_hal_camera property-area read granted (FIX 15)"
+else
+  skip "mtk_hal_camera te already grants the property area (FIX 15)"
 fi
 
 echo "=========================================================="

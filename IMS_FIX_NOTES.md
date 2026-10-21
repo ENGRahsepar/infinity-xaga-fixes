@@ -432,3 +432,66 @@ Live hot-patch via `ksud sepolicy patch` FAILED (Tool's Rust parser chokes on
 the statement syntax) — do NOT rely on that path; tree build is the fix.
 Reverted experimental state: device remains permissive until this build is
 flashed (rebuild ships a correct policy; flashing restores Enforcing DNA).
+
+## 15. FIX 14+15 + crash_dump write — the REAL MiuiCamera crash (2026-10-21, post-flash)
+
+After the 4.1-21.10 build was flashed the camera still crashed. Deeper analysis
+(with working tombstones, see below) found the true chain:
+
+**FIX 12 was correct but not sufficient** — after it, the `platform_app_36 ->
+mtk_hal_camera` binder denials were gone (verified live). What remained was ONE
+app-side denial, repeated 3x per camera start:
+
+    avc: denied { find } for interface=vendor.xiaomi.hardware.campostproc::IMiPostProcService
+         scontext=u:r:platform_app_36 tcontext=u:object_r:default_android_hwservice
+         tclass=hwservice_manager
+
+Why it is fatal: the interface has **no hwservice_contexts entry**, so the
+hwservicemanager falls back to the catch-all type `default_android_hwservice`,
+which A17 marks protected:
+
+    system/sepolicy/public/hwservice.te:
+      type default_android_hwservice, hwservice_manager_type, protected_hwservice;
+    system/sepolicy/private/domain.te:
+      neverallow * default_android_hwservice:hwservice_manager *;
+
+So the lookup is denied -> MiuiCamera never gets a post-processing service
+handle -> its super-night session is torn down before the plugin was ever
+initialised -> the Arcsoft plugin destroys an uninitialised engine:
+
+    #00 /vendor/lib64/libArcNetMtk.so (mcSuperNetMTK_NPURelease+24)
+    #01 /vendor/lib64/libarcsoft_super_night_raw.so (ARC_SN_PostProcess+676)
+    #04 /vendor/lib64/com.xiaomi.plugin.rawsuperlight.so (ArcsoftRawSuperlight::uninit+32)
+    #06 /vendor/lib64/libmialgoengine2.so (mialgo2::MiaOfflinePostProcSession::flush)
+    #11 /vendor/lib64/libmialgoengine.so (mialgo::MiPostProcServiceIntf::destroySession)
+    #13 MIADestroySession (JNI) <- com.xiaomi.engine.TaskSession.destroy
+    -> signal 11, fault addr 0x18, thread CameraSetup, com.android.camera
+
+**FIX 14** = give the service a real, non-protected type + context + client
+find (same shape as hal_mlipay_hwservice / hal_mtdservice_hwservice in this
+tree, and the same shape upstream uses on spes):
+  device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te (new)
+  device/xiaomi/mt6895-common/sepolicy/vendor/hwservice_contexts (+1 line)
+With the lookup allowed, the client behaves exactly like on a permissive
+device (verified live on-device: camera stays up, no tombstone).
+
+**FIX 15** = the MTK camera HAL was denied { open } on
+/dev/__properties__/u:object_r:default_prop:s0 (legacy property API) -> it
+silently ran with default configuration. Same for hal_audio_default.
+  device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te (+2 lines)
+
+**FIX 13b** = crash_dump needs `write` (not just read) on the MTK memfd: the
+unwinder opens /proc/<pid>/map_files/<start>-<end> with write access, so
+without it the map table is dropped entirely ("No memory maps found", no
+symbols). Verified live: with the write grant the tombstone has 4212 map
+entries and full symbolised frames.
+
+### Live-test recipe (no rebuild needed) — KernelSU runtime policy
+`ksud sepolicy patch` takes ONE statement/perm per call (more are parsed but
+only the first is applied). Syntax is space separated, no colons:
+    su -c 'ksud sepolicy patch "allow platform_app_36 hal_cas_hwservice hwservice_manager find"'
+To test a NEW hwservice type live: give the interface a temporary, existing
+non-protected type in /vendor/etc/selinux/vendor_hwservice_contexts
+(remount /vendor rw), restart hwservicemanager (ctl.restart hwservicemanager)
+and grant `find` on that type. NOTE: restarting hwservicemanager makes
+/vendor/bin/mtd_isee abort ("Could not register IMTService") until reboot.

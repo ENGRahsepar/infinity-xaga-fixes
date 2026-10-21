@@ -16,5 +16,12 @@
 # cgroup2 (reads cgroup.procs to expand threads).
 # ---------------------------------------------------------------
 
-allow crash_dump tmpfs:file { read getattr open };
+allow crash_dump tmpfs:file { read write getattr open };
 allow crash_dump cgroup_v2:file { read getattr open };
+
+# libunwindstack opens every mapping of the dying process through
+# /proc/<pid>/map_files/<start>-<end> to read the ELF build-id. For the
+# deleted MTK memfd that open is done with write access, so `read` alone
+# is not enough: without `write` the open fails and the whole map table
+# is dropped ("No memory maps found" in the tombstone, no symbols).
+allow crash_dump tmpfs:file { write };

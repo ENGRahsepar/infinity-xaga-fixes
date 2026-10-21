@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------
+# FIX 14 (mtk-ims-fixes kit) - Xiaomi camera post-processing HIDL
+#            service (IMiPostProcService) for MiuiCamera
+#
+# MiuiCamera (com.android.camera, platform signed -> domain
+# platform_app_36) resolves the Xiaomi post-processing service
+#
+#   vendor.xiaomi.hardware.campostproc::IMiPostProcService
+#
+# in hwservicemanager before it builds its super-night (raw) post
+# processing session. The service has NO hwservice_contexts entry in
+# this ROM, so the lookup falls back to the catch-all type
+# `default_android_hwservice`, which A17 marks as protected_hwservice:
+#
+#   system/sepolicy/public/hwservice.te:
+#     type default_android_hwservice, hwservice_manager_type, protected_hwservice;
+#   system/sepolicy/private/domain.te:
+#     neverallow * default_android_hwservice:hwservice_manager *;
+#
+# => the client is DENIED the `find` permission and MiuiCamera never
+# gets a service handle. The app then tears its super-night session
+# down again, and com.xiaomi.plugin.rawsuperlight.so is destroyed
+# WITHOUT ever having been initialised. Its uninit() ends up in
+# libarcsoft_super_night_raw.so ARC_SN_PostProcess() ->
+# libArcNetMtk.so mcSuperNetMTK_NPURelease(), which dereferences a
+# NULL NPU handle:
+#
+#   signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x18
+#   thread: CameraSetup   (com.android.camera, uid 10239)
+#
+# Fix (same shape as the other Xiaomi hwservices in this tree, e.g.
+# hal_mlipay_hwservice / hal_mtdservice_hwservice): give the service
+# its own non-protected type, map it in hwservice_contexts and let the
+# camera app find it. With the lookup succeeding, the client behaves
+# exactly like it does on a permissive device (where the very same
+# code path does not crash).
+# ---------------------------------------------------------------
+
+type hal_camerapostproc_xiaomi_hwservice, hwservice_manager_type;
+
+# The camera app is platform signed, so it runs as platform_app_36
+# (targetSdk <= 36) - both variants have to be granted.
+allow platform_app hal_camerapostproc_xiaomi_hwservice:hwservice_manager find;
+allow platform_app_36 hal_camerapostproc_xiaomi_hwservice:hwservice_manager find;

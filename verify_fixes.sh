@@ -67,6 +67,14 @@ chk "FIX 11: old per-app slice block removed"     '! grep -q "provide it with th
 chk "FIX 12: camera HAL binder te present" 'grep -q "mtk_hal_camera:binder { call transfer }" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera_hal_binder.te"'
 # FIX 13: crash_dump unwinder for MTK memfd maps
 chk "FIX 13: crash_dump memfd te present"  'grep -q "allow crash_dump tmpfs:file" "$TOP/device/mediatek/sepolicy_vndr/base/private/crash_dump_mtk_memfd.te"'
+chk "FIX 13: tmpfs write grant present"    'grep -q "allow crash_dump tmpfs:file { write }" "$TOP/device/mediatek/sepolicy_vndr/base/private/crash_dump_mtk_memfd.te"'
+# FIX 14: campostproc hwservice type + context + client find
+chk "FIX 14: campostproc te present"       'grep -q "hal_camerapostproc_xiaomi_hwservice, hwservice_manager_type" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te"'
+chk "FIX 14: platform_app find grant"      'grep -q "allow platform_app hal_camerapostproc_xiaomi_hwservice:hwservice_manager find" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te"'
+chk "FIX 14: platform_app_36 find grant"   'grep -q "allow platform_app_36 hal_camerapostproc_xiaomi_hwservice:hwservice_manager find" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hal_camerapostproc.te"'
+chk "FIX 14: hwservice_contexts entry"     'grep -q "campostproc::IMiPostProcService" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hwservice_contexts"'
+# FIX 15: camera HAL property area read
+chk "FIX 15: mtk_hal_camera prop read"     'grep -q "allow mtk_hal_camera default_prop:file { open read getattr map }" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"'
 
 # live device checks (optional, only if this host has adb and the phone is online)
 if command -v adb >/dev/null 2>&1 && adb -s 100.67.8.82:5555 get-state 2>/dev/null | grep -q device; then
