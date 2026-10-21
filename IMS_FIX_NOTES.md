@@ -495,3 +495,43 @@ non-protected type in /vendor/etc/selinux/vendor_hwservice_contexts
 (remount /vendor rw), restart hwservicemanager (ctl.restart hwservicemanager)
 and grant `find` on that type. NOTE: restarting hwservicemanager makes
 /vendor/bin/mtd_isee abort ("Could not register IMTService") until reboot.
+
+## 16. FIX 16/17/18 — the REAL MiuiCamera fix: A17 moved the app to `platform_app_36`
+
+Root cause of the remaining crash (and of "camera opened from another app does
+not capture"): on A17 the platform signed MiuiCamera (com.android.camera) runs
+in the NEW domain `platform_app_36` (platform key + targetSdk <= 36), NOT in
+`platform_app`. The MiuiCamera vendor package
+(vendor/xiaomi/miuicamera-xaga/sepolicy/vendor/platform_app.te) only writes
+rules for `platform_app`, so the app silently lost:
+
+  * /dev/apusys (MTK APU/NPU)  -> the Arcsoft super-night pipeline cannot be
+    initialised, its teardown dereferences a NULL engine:
+      libArcNetMtk.so mcSuperNetMTK_NPURelease
+      -> libarcsoft_super_night_raw.so ARC_SN_PostProcess
+      -> com.xiaomi.plugin.rawsuperlight.so ArcsoftRawSuperlight::uninit
+      -> signal 11 / fault addr 0x18 / thread CameraSetup
+    This is the crash that FIX 12 (binder) + FIX 13 (tombstones) did NOT fix.
+  * proc_stat read (ParallelDataZip thread), app_data_file execute,
+    vendor_camera_data_file
+  * vendor.mediatek.hardware.camera.isphal::IISPModule (mtk_hal_bgs_hwservice)
+    and the native "…isphal.IISPModule/internal/1" (hal_camera_service) ->
+    needed when the camera is opened FROM ANOTHER APP (IMAGE_CAPTURE)
+  * the vendor_default_prop / default_prop property areas (map/getattr)
+
+Plus the camera HAL could not set `vendor.nrcore.dla.model.error` (it fell
+into vendor_default_prop, which is `neverallow`ed for set) -> FIX 18 gives the
+property its own type.
+
+FIX 16/17/18 = device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te (new)
+                device/xiaomi/mt6895-common/sepolicy/vendor/property_contexts (+1 line)
+
+### Live verification (no rebuild, 2026-10-21)
+`ksud sepolicy patch "permissive platform_app_36"` -> camera works fully
+(night mode + IMAGE_CAPTURE capture) while the SYSTEM stays enforcing.
+NOTE: KernelSU's runtime patcher silently ignores `find` rules on
+hwservice_manager/service_manager types (they parse, report OK, but never
+reach the kernel policy) - those need the compiled tree policy (FIX 17).
+A boot-time helper was installed on the device meanwhile:
+/data/adb/service.d/99-miuicamera-selinux.sh (re-applies the runtime patches
+after every reboot until the ROM is rebuilt).

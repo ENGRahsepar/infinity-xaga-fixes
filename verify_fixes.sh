@@ -75,6 +75,15 @@ chk "FIX 14: platform_app_36 find grant"   'grep -q "allow platform_app_36 hal_c
 chk "FIX 14: hwservice_contexts entry"     'grep -q "campostproc::IMiPostProcService" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/hwservice_contexts"'
 # FIX 15: camera HAL property area read
 chk "FIX 15: mtk_hal_camera prop read"     'grep -q "allow mtk_hal_camera default_prop:file { open read getattr map }" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/mtk_hal_camera.te"'
+# FIX 16/17/18: MiuiCamera platform_app_36 rules
+MC16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te"
+chk "FIX 16: miuicamera.te present"        '[ -f "'"$MC16"'" ]'
+chk "FIX 16: apusys for platform_app_36"    'grep -q "allow platform_app_36 apusys_device:chr_file rw_file_perms" "'"$MC16"'"'
+chk "FIX 17: proc_stat for platform_app_36" 'grep -q "allow platform_app_36 proc_stat:file r_file_perms" "'"$MC16"'"'
+chk "FIX 17: bgs hwservice find"            'grep -q "allow platform_app_36 mtk_hal_bgs_hwservice:hwservice_manager find" "'"$MC16"'"'
+chk "FIX 17: isphal service find"           'grep -q "allow platform_app_36 hal_camera_service:service_manager find" "'"$MC16"'"'
+chk "FIX 18: camera DLA prop type"          'grep -q "type vendor_camera_dla_prop, property_type" "'"$MC16"'"'
+chk "FIX 18: DLA prop context"              'grep -q "vendor.nrcore.dla.model.error" "$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/property_contexts"'
 
 # live device checks (optional, only if this host has adb and the phone is online)
 if command -v adb >/dev/null 2>&1 && adb -s 100.67.8.82:5555 get-state 2>/dev/null | grep -q device; then

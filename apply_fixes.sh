@@ -448,6 +448,26 @@ else
   skip "mtk_hal_camera te already grants the property area (FIX 15)"
 fi
 
+# --- FIX 16/17/18: MiuiCamera on A17 (platform_app_36 domain) ---
+DEST16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/miuicamera.te"
+if [ ! -f "$DEST16" ]; then
+  [ "$DRYRUN" = "1" ] || cp "$SNIP/miuicamera.te" "$DEST16"
+  ok "miuicamera.te installed (FIX 16/17/18)"
+else
+  skip "miuicamera.te present (FIX 16/17/18)"
+fi
+PC16="$TOP/device/xiaomi/mt6895-common/sepolicy/vendor/property_contexts"
+if ! grep -q "vendor.nrcore.dla.model.error" "$PC16" 2>/dev/null; then
+  [ "$DRYRUN" = "1" ] || cat >> "$PC16" << 'EOP'
+
+# Camera DLA model error report (FIX 16/17/18)
+vendor.nrcore.dla.model.error                            u:object_r:vendor_camera_dla_prop:s0
+EOP
+  ok "property_contexts: camera DLA prop mapped (FIX 16/17/18)"
+else
+  skip "property_contexts already maps the camera DLA prop (FIX 16/17/18)"
+fi
+
 echo "=========================================================="
 if [ "$DRYRUN" = "1" ]; then
   echo "Dry run complete — nothing was modified."
